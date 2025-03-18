@@ -6,3 +6,6 @@ target = "thumbv7m-none-eabi"
 
 [env]
 DEFMT_LOG = "trace"
+
+[unstable]
+build-std = ["core", "alloc"]
