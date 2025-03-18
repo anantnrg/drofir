@@ -11,6 +11,7 @@ panic-rtt-target = { version = "0.1.2", features = ["cortex-m"] }
 rtt-target = { version = "0.3.1", features = ["cortex-m"] }
 systick-monotonic = "1.0.0"
 
+
 [dependencies.stm32f1xx-hal]
 version = "0.10.0"
 features = ["rt", "stm32f103", "medium"]
@@ -21,9 +22,12 @@ opt-level = 1
 codegen-units = 16
 debug = true
 lto = false
+panic = "abort"
+
 
 [profile.release]
 opt-level = "s"
 codegen-units = 1
 debug = true
 lto = true
+panic = "abort"
