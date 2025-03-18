@@ -1,0 +1,9 @@
+[default.general]
+chip = "STM32F103"
+
+[default.rtt]
+enabled = true
+show_timestamps = true
+
+[default.gdb]
+enabled = false
