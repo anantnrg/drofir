@@ -11,16 +11,13 @@ cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
 rtt-target = { version = "0.6.1" }
 systick-monotonic = "1.0.0"
 mpu6050 = "0.1.6"
+rtic = { git = "https://github.com/rtic-rs/rtic", features = [
+    "thumbv7-backend",
+] }
+rtic-monotonics = { git = "https://github.com/rtic-rs/rtic", features = [
+    "cortex-m-systick",
+] }
 
-[dependencies.rtic]
-git = "https://github.com/rtic-rs/rtic"
-rev = "v2.1.1"
-features = ["thumbv7-backend"]
-
-[dependencies.rtic-monotonics]
-git = "https://github.com/rtic-rs/rtic-monotonics"
-rev = "v2.0.3"
-features = ["cortex-m-systick"]
 
 [dependencies.stm32f1xx-hal]
 version = "0.10.0"
