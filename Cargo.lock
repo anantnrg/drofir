@@ -224,6 +224,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "drofir"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "defmt",
+ "defmt-rtt",
+ "embassy-executor",
+ "embassy-futures",
+ "embassy-stm32",
+ "embassy-sync",
+ "embassy-time",
+ "embassy-usb",
+ "embedded-hal 0.2.7",
+ "heapless",
+ "nb 1.1.0",
+ "panic-probe",
+ "static_cell",
+]
+
+[[package]]
 name = "embassy-embedded-hal"
 version = "0.3.0"
 source = "git+https://github.com/embassy-rs/embassy?branch=main#9d672c44d1dccaac039c656bc2986c4fcf9823c9"
@@ -343,27 +364,6 @@ dependencies = [
  "stm32-metapac",
  "vcell",
  "volatile-register",
-]
-
-[[package]]
-name = "embassy-stm32f1-examples"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "cortex-m-rt",
- "defmt",
- "defmt-rtt",
- "embassy-executor",
- "embassy-futures",
- "embassy-stm32",
- "embassy-sync",
- "embassy-time",
- "embassy-usb",
- "embedded-hal 0.2.7",
- "heapless",
- "nb 1.1.0",
- "panic-probe",
- "static_cell",
 ]
 
 [[package]]

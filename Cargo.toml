@@ -1,11 +1,10 @@
 [package]
 edition = "2021"
-name = "embassy-stm32f1-examples"
+name = "drofir"
 version = "0.1.0"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 
 [dependencies]
-# Change stm32f103c8 to your chip name, if necessary.
 embassy-stm32 = { git = "https://github.com/embassy-rs/embassy", branch = "main", features = [
     "defmt",
     "stm32f103c8",
