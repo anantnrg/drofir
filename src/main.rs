@@ -48,9 +48,20 @@ fn main() -> ! {
     let max_pulse = max_duty / 7; // 2500us
     pwm.set_duty(Channel::C1, max_pulse);
     pwm.enable(Channel::C1);
-
-    let min_duty = pulse_width_to_ticks(min_pulse, max_duty);
-    let max_duty = pulse_width_to_ticks(max_pulse, max_duty);
+    rprintln!("Duty cycle for 0°: {}", min_pulse);
+    rprintln!("Max Duty: {}", max_duty);
+    rprintln!(
+        "500us in Ticks: {} | 2500us in Ticks: {}",
+        pulse_width_to_ticks(500, max_duty),
+        pulse_width_to_ticks(2500, max_duty)
+    );
+    let max_duty_ticks = pulse_width_to_ticks(max_pulse, max_duty);
+    let min_duty_ticks = pulse_width_to_ticks(min_pulse, max_duty);
+    rprintln!(
+        "Initial Min Duty Ticks: {} | Initial Max Duty Ticks: {}",
+        min_duty_ticks,
+        max_duty_ticks
+    );
 
     let mut i2c = BlockingI2c::i2c1(
         dp.I2C1,
@@ -69,20 +80,34 @@ fn main() -> ! {
     let mut mpu = Mpu6050::new(i2c);
     mpu.init(&mut delay).unwrap();
     loop {
-        pwm.set_duty(Channel::C1, max_pulse);
+        pwm.set_duty(
+            Channel::C1,
+            angle_to_duty(0, min_duty_ticks, max_duty_ticks),
+        );
         delay.delay_ms(1000);
 
-        pwm.set_duty(Channel::C1, min_pulse);
+        pwm.set_duty(
+            Channel::C1,
+            angle_to_duty(90, min_duty_ticks, max_duty_ticks),
+        );
+
+        delay.delay_ms(1000);
+
+        pwm.set_duty(
+            Channel::C1,
+            angle_to_duty(180, min_duty_ticks, max_duty_ticks),
+        );
+
         delay.delay_ms(1000);
     }
 }
 
 fn angle_to_duty(angle: u16, min_duty: u16, max_duty: u16) -> u16 {
-    min_duty + ((max_duty - min_duty) * angle / 180)
+    min_duty + (((max_duty - min_duty) as u32 * angle as u32) / 180) as u16
 }
 
 fn pulse_width_to_ticks(pulse_width: u16, max_duty: u16) -> u16 {
-    (pulse_width as u32 * max_duty as u32 / 20000) as u16
+    ((pulse_width as u32 * max_duty as u32) / 53333) as u16
 }
 
 // loop {
