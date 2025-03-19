@@ -78,32 +78,49 @@ fn main() -> ! {
     );
 
     let mut mpu = Mpu6050::new(i2c);
+    mpu.set_gyro_range(mpu6050::device::GyroRange::D2000)
+        .unwrap();
+    mpu.set_sleep_enabled(false).unwrap();
     mpu.init(&mut delay).unwrap();
+
     loop {
-        pwm.set_duty(
-            Channel::C1,
-            angle_to_duty(0, min_duty_ticks, max_duty_ticks),
+        let gyro = mpu.get_gyro().unwrap();
+        rprintln!(
+            "RAW GYRO X: {:.2}, Y: {:.2}, Z: {:.2}",
+            gyro.x,
+            gyro.y,
+            gyro.z
         );
-        delay.delay_ms(1000);
-
-        pwm.set_duty(
-            Channel::C1,
-            angle_to_duty(90, min_duty_ticks, max_duty_ticks),
+        let scale_factor = 16.4; // For ±2000°/s
+        let gyro_x = (gyro.x as f32) / scale_factor;
+        rprintln!("Gyro X: {}°/s", gyro_x);
+        let angle = map_gyro_to_angle(gyro_x);
+        let duty = angle_to_duty(angle, min_duty_ticks, max_duty_ticks);
+        pwm.set_duty(Channel::C1, duty);
+        rprintln!(
+            "Gyro X: {:.2} | Servo Angle: {}° | Duty Cycle: {}",
+            gyro.x,
+            angle,
+            duty
         );
 
-        delay.delay_ms(1000);
-
-        pwm.set_duty(
-            Channel::C1,
-            angle_to_duty(180, min_duty_ticks, max_duty_ticks),
-        );
-
-        delay.delay_ms(1000);
+        delay.delay_ms(100);
     }
 }
 
 fn angle_to_duty(angle: u16, min_duty: u16, max_duty: u16) -> u16 {
     min_duty + (((max_duty - min_duty) as u32 * angle as u32) / 180) as u16
+}
+
+fn map_gyro_to_angle(gyro_x: f32) -> u16 {
+    let min_gyro = -250.0;
+    let max_gyro = 250.0;
+    let min_angle = 0;
+    let max_angle = 180;
+
+    let gyro_x = gyro_x.max(min_gyro).min(max_gyro);
+
+    (((gyro_x - min_gyro) / (max_gyro - min_gyro)) * (max_angle - min_angle) as f32) as u16
 }
 
 fn pulse_width_to_ticks(pulse_width: u16, max_duty: u16) -> u16 {
@@ -112,7 +129,7 @@ fn pulse_width_to_ticks(pulse_width: u16, max_duty: u16) -> u16 {
 
 // loop {
 //     let accel = mpu.get_acc().unwrap();
-//     let gyro = mpu.get_gyro().unwrap();
+//
 
 //     rprintln!(
 //         "AX: {:.2}, AY: {:.2}, AZ: {:.2} | GX: {:.2}, GY: {:.2}, GZ: {:.2}",
