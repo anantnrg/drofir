@@ -42,11 +42,15 @@ fn main() -> ! {
     let mut pwm = dp
         .TIM2
         .pwm_hz::<Tim2NoRemap, _, _>(pins, &mut afio.mapr, 50.Hz(), &clocks);
+
+    let max_duty = pwm.get_max_duty(); // Timer resolution
+    let min_pulse = max_duty / 30; // 500us
+    let max_pulse = max_duty / 7; // 2500us
+    pwm.set_duty(Channel::C1, max_pulse);
     pwm.enable(Channel::C1);
 
-    let max_duty = pwm.get_max_duty();
-    let min_duty = max_duty / 10;
-    let max_duty = max_duty / 20;
+    let min_duty = pulse_width_to_ticks(min_pulse, max_duty);
+    let max_duty = pulse_width_to_ticks(max_pulse, max_duty);
 
     let mut i2c = BlockingI2c::i2c1(
         dp.I2C1,
@@ -65,53 +69,32 @@ fn main() -> ! {
     let mut mpu = Mpu6050::new(i2c);
     mpu.init(&mut delay).unwrap();
     loop {
-        loop {
-            for duty in min_duty..=max_duty {
-                pwm.set_duty(Channel::C1, duty);
-                rprintln!("Testing Duty: {}", duty);
-                delay.delay_ms(20);
-            }
+        pwm.set_duty(Channel::C1, max_pulse);
+        delay.delay_ms(1000);
 
-            for duty in (min_duty..=max_duty).rev() {
-                pwm.set_duty(Channel::C1, duty);
-                rprintln!("Testing Duty: {}", duty);
-                delay.delay_ms(20);
-            }
-        }
+        pwm.set_duty(Channel::C1, min_pulse);
+        delay.delay_ms(1000);
     }
-
-    // loop {
-    //     let accel = mpu.get_acc().unwrap();
-    //     let gyro = mpu.get_gyro().unwrap();
-
-    //     rprintln!(
-    //         "AX: {:.2}, AY: {:.2}, AZ: {:.2} | GX: {:.2}, GY: {:.2}, GZ: {:.2}",
-    //         accel.x,
-    //         accel.y,
-    //         accel.z,
-    //         gyro.x,
-    //         gyro.y,
-    //         gyro.z
-    //     );
-
-    //     delay.delay_ms(100u32);
-
-    //     // **Move to 0°**
-    //     let duty = min_duty;
-    //     pwm.set_duty(Channel::C1, duty);
-    //     rprintln!("Moving to 0°");
-    //     delay.delay_ms(1000);
-
-    //     // **Move to 90°**
-    //     let duty = min_duty + ((max_duty - min_duty) / 2);
-    //     pwm.set_duty(Channel::C1, duty);
-    //     rprintln!("Moving to 90°");
-    //     delay.delay_ms(1000);
-
-    //     // **Move to 180°**
-    //     let duty = max_duty;
-    //     pwm.set_duty(Channel::C1, duty);
-    //     rprintln!("Moving to 180°");
-    //     delay.delay_ms(1000);
-    // }
 }
+
+fn angle_to_duty(angle: u16, min_duty: u16, max_duty: u16) -> u16 {
+    min_duty + ((max_duty - min_duty) * angle / 180)
+}
+
+fn pulse_width_to_ticks(pulse_width: u16, max_duty: u16) -> u16 {
+    (pulse_width as u32 * max_duty as u32 / 20000) as u16
+}
+
+// loop {
+//     let accel = mpu.get_acc().unwrap();
+//     let gyro = mpu.get_gyro().unwrap();
+
+//     rprintln!(
+//         "AX: {:.2}, AY: {:.2}, AZ: {:.2} | GX: {:.2}, GY: {:.2}, GZ: {:.2}",
+//         accel.x,
+//         accel.y,
+//         accel.z,
+//         gyro.x,
+//         gyro.y,
+//         gyro.z
+//     );
