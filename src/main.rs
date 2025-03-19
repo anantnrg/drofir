@@ -24,9 +24,6 @@ fn main() -> ! {
     rprintln!("RTT initialized!");
     let cp = cortex_m::Peripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
-    // dp.I2C1.cr1.modify(|_, w| w.pe().clear_bit()); // Disable I2C
-    // dp.I2C1.cr1.modify(|_, w| w.pe().set_bit()); // Re-enable I2C
-    // rprintln!("I2C reset!");
 
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
@@ -42,28 +39,21 @@ fn main() -> ! {
     let sda = gpiob.pb7.into_alternate_open_drain(&mut gpiob.crl);
 
     let mut i2c = BlockingI2c::i2c1(
-        dp.I2C1,        // I2C1 peripheral
-        (scl, sda),     // SDA & SCL pins
-        &mut afio.mapr, // Alternate function remap
+        dp.I2C1,
+        (scl, sda),
+        &mut afio.mapr,
         Mode::Standard {
             frequency: 100.kHz(),
         },
-        clocks, // Clocks
-        1000,   // Start timeout (us)
-        10,     // Start retries
-        5000,   // Address timeout (us)
-        5000,   // Data timeout (us)
+        clocks,
+        1000,
+        10,
+        5000,
+        5000,
     );
-    // rprintln!("Scanning I2C bus...");
-    // for addr in 0x08..=0x77 {
-    //     if i2c.write(addr, &[0]).is_ok() {
-    //         rprintln!("Device found at 0x{:X}", addr);
-    //     }
-    // }
-    rprintln!("Scan complete.");
 
     let mut mpu = Mpu6050::new(i2c);
-    mpu.init(&mut delay).unwrap(); // Pass delay reference
+    mpu.init(&mut delay).unwrap();
 
     loop {
         let accel = mpu.get_acc().unwrap();
