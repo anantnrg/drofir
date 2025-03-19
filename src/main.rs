@@ -19,6 +19,7 @@ use stm32f1xx_hal::{
 fn main() -> ! {
     rtt_init_print!();
     rprintln!("RTT initialized!");
+
     let cp = cortex_m::Peripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
 
@@ -40,9 +41,12 @@ fn main() -> ! {
 
     let mut pwm = dp
         .TIM2
-        .pwm_hz::<Tim2NoRemap, _, _>(pins, &mut afio.mapr, 1.kHz(), &clocks);
+        .pwm_hz::<Tim2NoRemap, _, _>(pins, &mut afio.mapr, 50.Hz(), &clocks);
     pwm.enable(Channel::C1);
+
     let max_duty = pwm.get_max_duty();
+    let min_duty = max_duty / 10;
+    let max_duty = max_duty / 20;
 
     let mut i2c = BlockingI2c::i2c1(
         dp.I2C1,
@@ -60,33 +64,54 @@ fn main() -> ! {
 
     let mut mpu = Mpu6050::new(i2c);
     mpu.init(&mut delay).unwrap();
-
     loop {
-        let accel = mpu.get_acc().unwrap();
-        let gyro = mpu.get_gyro().unwrap();
+        loop {
+            for duty in min_duty..=max_duty {
+                pwm.set_duty(Channel::C1, duty);
+                rprintln!("Testing Duty: {}", duty);
+                delay.delay_ms(20);
+            }
 
-        let ax = accel.x;
-        let ay = accel.y;
-        let az = accel.z;
-        let gx = gyro.x;
-        let gy = gyro.y;
-        let gz = gyro.z;
-
-        rprintln!("AX: {}, AY: {}, AZ: {}", ax, ay, az);
-        rprintln!("GX: {}, GY: {}, GZ: {}", gx, gy, gz);
-
-        delay.delay_ms(100u32);
-
-        for angle in 0..=180 {
-            let pulse = max_duty / 20 + (angle * max_duty / 180) / 20;
-            pwm.set_duty(Channel::C1, pulse);
-            cortex_m::asm::delay(8_000_000);
-        }
-
-        for angle in (0..=180).rev() {
-            let pulse = max_duty / 20 + (angle * max_duty / 180) / 20;
-            pwm.set_duty(Channel::C1, pulse);
-            cortex_m::asm::delay(8_000_000);
+            for duty in (min_duty..=max_duty).rev() {
+                pwm.set_duty(Channel::C1, duty);
+                rprintln!("Testing Duty: {}", duty);
+                delay.delay_ms(20);
+            }
         }
     }
+
+    // loop {
+    //     let accel = mpu.get_acc().unwrap();
+    //     let gyro = mpu.get_gyro().unwrap();
+
+    //     rprintln!(
+    //         "AX: {:.2}, AY: {:.2}, AZ: {:.2} | GX: {:.2}, GY: {:.2}, GZ: {:.2}",
+    //         accel.x,
+    //         accel.y,
+    //         accel.z,
+    //         gyro.x,
+    //         gyro.y,
+    //         gyro.z
+    //     );
+
+    //     delay.delay_ms(100u32);
+
+    //     // **Move to 0°**
+    //     let duty = min_duty;
+    //     pwm.set_duty(Channel::C1, duty);
+    //     rprintln!("Moving to 0°");
+    //     delay.delay_ms(1000);
+
+    //     // **Move to 90°**
+    //     let duty = min_duty + ((max_duty - min_duty) / 2);
+    //     pwm.set_duty(Channel::C1, duty);
+    //     rprintln!("Moving to 90°");
+    //     delay.delay_ms(1000);
+
+    //     // **Move to 180°**
+    //     let duty = max_duty;
+    //     pwm.set_duty(Channel::C1, duty);
+    //     rprintln!("Moving to 180°");
+    //     delay.delay_ms(1000);
+    // }
 }
