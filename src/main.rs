@@ -25,14 +25,7 @@ fn main() -> ! {
 
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
-    let clocks: Clocks = rcc
-        .cfgr
-        .use_hse(8.MHz())
-        .sysclk(72.MHz())
-        .pclk1(36.MHz())
-        .pclk2(72.MHz())
-        .freeze(&mut flash.acr);
-    rprintln!("APB1 Timer Clock: {} Hz", clocks.pclk1() * 2);
+    let clocks: Clocks = rcc.cfgr.freeze(&mut flash.acr);
 
     let mut delay = Delay::new(cp.SYST, clocks.sysclk().to_Hz());
 
@@ -51,15 +44,19 @@ fn main() -> ! {
         .pwm_hz::<Tim2NoRemap, _, _>(pins, &mut afio.mapr, 50.Hz(), &clocks);
 
     let max_duty = pwm.get_max_duty(); // Timer resolution
-    let min_pulse = max_duty / 20; // 500us
-    let max_pulse = max_duty / 10; // 2500us
+    let min_pulse = max_duty / 30; // 500us
+    let max_pulse = max_duty / 7; // 2500us
     pwm.set_duty(Channel::C1, max_pulse);
     pwm.enable(Channel::C1);
     rprintln!("Duty cycle for 0°: {}", min_pulse);
     rprintln!("Max Duty: {}", max_duty);
-
-    let max_duty_ticks = pulse_width_to_ticks(2500, max_duty);
-    let min_duty_ticks = pulse_width_to_ticks(500, max_duty);
+    rprintln!(
+        "500us in Ticks: {} | 2500us in Ticks: {}",
+        pulse_width_to_ticks(500, max_duty.into()),
+        pulse_width_to_ticks(2500, max_duty.into())
+    );
+    let max_duty_ticks = pulse_width_to_ticks(max_pulse, max_duty.into());
+    let min_duty_ticks = pulse_width_to_ticks(min_pulse, max_duty.into());
     rprintln!(
         "Initial Min Duty Ticks: {} | Initial Max Duty Ticks: {}",
         min_duty_ticks,
@@ -81,49 +78,35 @@ fn main() -> ! {
     );
 
     let mut mpu = Mpu6050::new(i2c);
-    mpu.set_gyro_range(mpu6050::device::GyroRange::D2000)
-        .unwrap();
-    mpu.set_sleep_enabled(false).unwrap();
     mpu.init(&mut delay).unwrap();
-
     loop {
-        let duty = angle_to_duty(0, min_duty_ticks, max_duty_ticks);
-        pwm.set_duty(Channel::C1, duty);
-        rprintln!("Duty Cycle: {}", duty);
+        pwm.set_duty(Channel::C1, angle_to_duty(0));
         delay.delay_ms(1000);
-        let duty = angle_to_duty(90, min_duty_ticks, max_duty_ticks);
-        pwm.set_duty(Channel::C1, duty);
-        rprintln!("Duty Cycle: {}", duty);
+
+        pwm.set_duty(Channel::C1, angle_to_duty(90));
+
         delay.delay_ms(1000);
-        let duty = angle_to_duty(180, min_duty_ticks, max_duty_ticks);
-        pwm.set_duty(Channel::C1, duty);
-        rprintln!("Duty Cycle: {}", duty);
+
+        pwm.set_duty(Channel::C1, angle_to_duty(180));
+
         delay.delay_ms(1000);
     }
 }
 
-fn angle_to_duty(angle: u16, min_duty: u16, max_duty: u16) -> u16 {
-    min_duty + (((max_duty - min_duty) as u32 * angle as u32) / 180) as u16
+fn angle_to_duty(angle: u16) -> u16 {
+    let min_pulse = 500; // 500us
+    let max_pulse = 2500; // 2500us
+    min_pulse + (((max_pulse - min_pulse) as u32 * angle as u32) / 180) as u16
 }
 
-fn map_gyro_to_angle(gyro_x: f32) -> u16 {
-    let min_gyro = -250.0;
-    let max_gyro = 250.0;
-    let min_angle = 0;
-    let max_angle = 180;
-
-    let gyro_x = gyro_x.max(min_gyro).min(max_gyro);
-
-    (((gyro_x - min_gyro) / (max_gyro - min_gyro)) * (max_angle - min_angle) as f32) as u16
-}
-
-fn pulse_width_to_ticks(pulse_width: u16, max_duty: u16) -> u16 {
-    ((pulse_width as u32 * max_duty as u32) / 20000) as u16
+fn pulse_width_to_ticks(pulse_width: u16, timer_freq: u32) -> u16 {
+    let pwm_period = 20_000; // 20ms (50Hz)
+    ((pulse_width as u32 * timer_freq) / (1_000_000 / pwm_period)) as u16
 }
 
 // loop {
 //     let accel = mpu.get_acc().unwrap();
-//
+//     let gyro = mpu.get_gyro().unwrap();
 
 //     rprintln!(
 //         "AX: {:.2}, AY: {:.2}, AZ: {:.2} | GX: {:.2}, GY: {:.2}, GZ: {:.2}",
