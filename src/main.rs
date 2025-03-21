@@ -3,13 +3,13 @@
 
 use cortex_m::delay::Delay;
 use cortex_m_rt::entry;
-
+use mpu6050::*;
 use panic_halt as _;
 use rtt_target::{rprintln, rtt_init_print};
 use stm32f1xx_hal::{
+    i2c::{BlockingI2c, Mode},
     pac,
     prelude::*,
-    timer::{pwm, Tim3NoRemap},
 };
 
 #[entry]
@@ -25,27 +25,52 @@ fn main() -> ! {
     let mut delay = Delay::new(cp.SYST, clocks.sysclk().to_Hz());
 
     let mut afio = dp.AFIO.constrain();
-    let mut gpioa = dp.GPIOA.split();
-    let servo_pin = gpioa.pa6.into_alternate_push_pull(&mut gpioa.crl);
+    let mut gpiob = dp.GPIOB.split();
+    afio.mapr.modify_mapr(|_, w| w.i2c1_remap().set_bit());
 
-    let pwm = dp
-        .TIM3
-        .pwm_hz::<Tim3NoRemap, _, _>(servo_pin, &mut afio.mapr, 50.Hz(), &clocks);
+    let scl = gpiob.pb6.into_alternate_open_drain(&mut gpiob.crl);
+    let sda = gpiob.pb7.into_alternate_open_drain(&mut gpiob.crl);
 
-    let mut channel = pwm.split();
-    channel.enable();
+    let mut i2c = BlockingI2c::i2c1(
+        dp.I2C1,
+        (scl, sda),
+        &mut afio.mapr,
+        Mode::Standard {
+            frequency: 400.kHz(),
+        },
+        clocks,
+        1000,
+        10,
+        5000,
+        5000,
+    );
 
-    let max_duty = channel.get_max_duty();
-    let min_pulse = max_duty / 40;
-    let max_pulse = max_duty / 8;
+    let mut mpu = Mpu6050::new(i2c);
+    mpu.init(&mut delay).unwrap();
 
     loop {
-        rprintln!("Moving to 0 degrees with pulse: {}", min_pulse);
-        channel.set_duty(min_pulse);
-        delay.delay_ms(1000);
+        match mpu.get_acc_angles() {
+            Ok(acc) => {
+                let gyro = mpu.get_gyro().unwrap_or_default();
+                let temp = mpu.get_temp().unwrap_or(35.36); // Default temp if read fails
 
-        rprintln!("Moving to 180 degrees with pulse: {}", max_pulse);
-        channel.set_duty(max_pulse);
-        delay.delay_ms(1000);
+                rprintln!(
+                    "Temp: {}°C | Pitch: {:.2}° | Roll: {:.2}° | Gyro X Y Z: {:.2}, {:.2}, {:.2}",
+                    temp,
+                    acc.x,
+                    acc.y,
+                    gyro.x * 65.5,
+                    gyro.y * 65.5,
+                    gyro.z * 65.5
+                );
+            }
+            Err(_) => {
+                rprintln!("MPU6050 ERROR! Reinitializing...");
+                delay.delay_ms(100);
+                mpu.init(&mut delay).unwrap(); // Reset sensor
+            }
+        }
+
+        delay.delay_ms(500);
     }
 }
