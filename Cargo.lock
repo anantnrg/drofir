@@ -110,6 +110,7 @@ dependencies = [
  "embedded-hal 1.0.0",
  "embedded-hal-async",
  "fugit",
+ "libm",
  "mpu6050",
  "panic-halt",
  "panic-rtt-target",

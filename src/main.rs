@@ -3,6 +3,7 @@
 
 use cortex_m::delay::Delay;
 use cortex_m_rt::entry;
+use libm::{atan2f, sqrtf};
 use mpu6050::*;
 use panic_halt as _;
 use rtt_target::{rprintln, rtt_init_print};
@@ -75,23 +76,17 @@ fn main() -> ! {
         let accel = mpu.get_acc().unwrap();
         let temp = mpu.get_temp().unwrap();
 
-        let x_raw = (gyro.x * RAD_TO_DEG * SENS_DPS) as i16;
-        let y_raw = (gyro.y * RAD_TO_DEG * SENS_DPS) as i16;
+        let x_raw = gyro.x * RAD_TO_DEG * SENS_DPS;
+        let y_raw = gyro.y * RAD_TO_DEG * SENS_DPS;
         let z_raw = (gyro.z * RAD_TO_DEG * SENS_DPS) as i16;
 
-        let acc_roll = accel.y.atan2(accel.z) * RAD_TO_DEG;
-        let acc_pitch = -accel
-            .x
-            .atan2((accel.y * accel.y + accel.z * accel.z).sqrt())
-            * RAD_TO_DEG;
+        let acc_roll = atan2f(accel.y, accel.z) * RAD_TO_DEG;
+        let acc_pitch = -atan2f(accel.x, sqrtf(accel.y * accel.y + accel.z * accel.z)) * RAD_TO_DEG;
+        roll = ALPHA * (roll + x_raw * DT) + (1.0 - ALPHA) * acc_roll;
+        pitch = ALPHA * (pitch + y_raw * DT) + (1.0 - ALPHA) * acc_pitch;
+        rprintln!("Roll: {:.2} Pitch: {:.2}", roll, pitch);
 
-        rprintln!(
-            "Xraw = {} Yraw = {} Zraw = {} Temperature = {:.2}",
-            x_raw,
-            y_raw,
-            z_raw,
-            temp
-        );
+        delay.delay_ms((DT * 1000.0) as u32);
         // rprintln!("Moving to 0 degrees with pulse: {}", min_pulse);
         // channel.set_duty(min_pulse);
         // delay.delay_ms(2000);

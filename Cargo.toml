@@ -21,6 +21,7 @@ rtic-monotonics = { git = "https://github.com/rtic-rs/rtic", features = [
 cortex-m-rt = "0.7"
 panic-halt = "0.2"
 fugit = "0.3.7"
+libm = "0.2.11"
 
 [dependencies.stm32f1xx-hal]
 version = "0.10.0"
