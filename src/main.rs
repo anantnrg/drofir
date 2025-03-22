@@ -15,6 +15,8 @@ use stm32f1xx_hal::{
 
 const RAD_TO_DEG: f32 = 180.0 / core::f32::consts::PI;
 const SENS_DPS: f32 = 16.4;
+const ALPHA: f32 = 0.98;
+const DT: f32 = 0.01;
 
 #[entry]
 fn main() -> ! {
@@ -60,19 +62,28 @@ fn main() -> ! {
     let mut mpu = Mpu6050::new_with_sens(i2c, device::AccelRange::G4, device::GyroRange::D2000);
 
     mpu.init(&mut delay).unwrap();
-    rprintln!("ahhh");
 
     // let max_duty = channel.get_max_duty();
     // let min_pulse = max_duty / 40;
     // let max_pulse = max_duty / 8;
 
+    let mut roll = 0.0;
+    let mut pitch = 0.0;
+
     loop {
         let gyro = mpu.get_gyro().unwrap();
+        let accel = mpu.get_acc().unwrap();
         let temp = mpu.get_temp().unwrap();
 
         let x_raw = (gyro.x * RAD_TO_DEG * SENS_DPS) as i16;
         let y_raw = (gyro.y * RAD_TO_DEG * SENS_DPS) as i16;
         let z_raw = (gyro.z * RAD_TO_DEG * SENS_DPS) as i16;
+
+        let acc_roll = accel.y.atan2(accel.z) * RAD_TO_DEG;
+        let acc_pitch = -accel
+            .x
+            .atan2((accel.y * accel.y + accel.z * accel.z).sqrt())
+            * RAD_TO_DEG;
 
         rprintln!(
             "Xraw = {} Yraw = {} Zraw = {} Temperature = {:.2}",
