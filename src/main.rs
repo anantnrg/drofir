@@ -10,7 +10,11 @@ use stm32f1xx_hal::{
     i2c::{BlockingI2c, Mode},
     pac,
     prelude::*,
+    timer::Tim3NoRemap,
 };
+
+const RAD_TO_DEG: f32 = 180.0 / core::f32::consts::PI;
+const SENS_DPS: f32 = 16.4;
 
 #[entry]
 fn main() -> ! {
@@ -25,18 +29,27 @@ fn main() -> ! {
     let mut delay = Delay::new(cp.SYST, clocks.sysclk().to_Hz());
 
     let mut afio = dp.AFIO.constrain();
+    let mut gpioa = dp.GPIOA.split();
     let mut gpiob = dp.GPIOB.split();
     afio.mapr.modify_mapr(|_, w| w.i2c1_remap().set_bit());
 
     let scl = gpiob.pb6.into_alternate_open_drain(&mut gpiob.crl);
     let sda = gpiob.pb7.into_alternate_open_drain(&mut gpiob.crl);
+    // let servo_pin = gpioa.pa6.into_alternate_push_pull(&mut gpioa.crl);
+
+    // let pwm = dp
+    //     .TIM3
+    //     .pwm_hz::<Tim3NoRemap, _, _>(servo_pin, &mut afio.mapr, 50.Hz(), &clocks);
+
+    // let mut channel = pwm.split();
+    // channel.enable();
 
     let mut i2c = BlockingI2c::i2c1(
         dp.I2C1,
         (scl, sda),
         &mut afio.mapr,
         Mode::Standard {
-            frequency: 400.kHz(),
+            frequency: 100.kHz(),
         },
         clocks,
         1000,
@@ -44,33 +57,36 @@ fn main() -> ! {
         5000,
         5000,
     );
+    let mut mpu = Mpu6050::new_with_sens(i2c, device::AccelRange::G4, device::GyroRange::D2000);
 
-    let mut mpu = Mpu6050::new(i2c);
     mpu.init(&mut delay).unwrap();
+    rprintln!("ahhh");
+
+    // let max_duty = channel.get_max_duty();
+    // let min_pulse = max_duty / 40;
+    // let max_pulse = max_duty / 8;
 
     loop {
-        match mpu.get_acc_angles() {
-            Ok(acc) => {
-                let gyro = mpu.get_gyro().unwrap_or_default();
-                let temp = mpu.get_temp().unwrap_or(35.36); // Default temp if read fails
+        let gyro = mpu.get_gyro().unwrap();
+        let temp = mpu.get_temp().unwrap();
 
-                rprintln!(
-                    "Temp: {}°C | Pitch: {:.2}° | Roll: {:.2}° | Gyro X Y Z: {:.2}, {:.2}, {:.2}",
-                    temp,
-                    acc.x,
-                    acc.y,
-                    gyro.x * 65.5,
-                    gyro.y * 65.5,
-                    gyro.z * 65.5
-                );
-            }
-            Err(_) => {
-                rprintln!("MPU6050 ERROR! Reinitializing...");
-                delay.delay_ms(100);
-                mpu.init(&mut delay).unwrap(); // Reset sensor
-            }
-        }
+        let x_raw = (gyro.x * RAD_TO_DEG * SENS_DPS) as i16;
+        let y_raw = (gyro.y * RAD_TO_DEG * SENS_DPS) as i16;
+        let z_raw = (gyro.z * RAD_TO_DEG * SENS_DPS) as i16;
 
-        delay.delay_ms(500);
+        rprintln!(
+            "Xraw = {} Yraw = {} Zraw = {} Temperature = {:.2}",
+            x_raw,
+            y_raw,
+            z_raw,
+            temp
+        );
+        // rprintln!("Moving to 0 degrees with pulse: {}", min_pulse);
+        // channel.set_duty(min_pulse);
+        // delay.delay_ms(2000);
+
+        // rprintln!("Moving to 180 degrees with pulse: {}", max_pulse);
+        // channel.set_duty(max_pulse);
+        // delay.delay_ms(2000);
     }
 }
